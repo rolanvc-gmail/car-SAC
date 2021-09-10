@@ -165,42 +165,59 @@ class CarGym(gym.Env):
 
         return reward, done
 
+    def compute_distance(self, pos, target):
+        xdiff_prev = (target["x_val"] - pos.x_val)
+        xdiff_prev_sq = xdiff_prev ** 2
+        ydiff_prev = (target["y_val"] - pos.y_val)
+        ydiff_prev_sq = ydiff_prev ** 2
+        zdiff_prev = (target["z_val"] - pos.z_val)
+        zdiff_prev_sq = zdiff_prev ** 2
+        _distance = math.sqrt(xdiff_prev_sq + ydiff_prev_sq + zdiff_prev_sq)
+
+        return _distance
+
+
     def _compute__reward(self):
         """Reward #1: Customized reward system for getting to the end of the road.
 
         :return: reward, done
         """
+        done = False
         reward = 0
+        info = {}
+
         # target position
-        targe_pos = {
+        target_pos = {
             "x_val": 101.336,
             "y_val": 0.077,
             "z_val": -0.587
 
         }
-
-
         # Get the car's current position and previous position
         curr_pos = self.state["pose"].position
         prev_pos = self.state["prev_pose"].position
 
-        done = 0
-        if reward < -1:
-            print("Done because reward <-1")
-            done = 1
-        if self.car_controls.brake == 0:
-            if self.car_state.speed <= 1:
-                done = 1
-        if self.state["collision"]:
-            done = 1
+        prev_distance = self.compute_distance(prev_pos, target_pos)
+        curr_distance = self.compute_distance(curr_pos, target_pos)
 
-        return reward, done
+        gained_distance = prev_distance - curr_distance
+        reward = gained_distance
+        info["reward"] = reward
+
+        # check if done.
+        if self.state["collision"]:
+            reward = -100
+            info["collision"] = True
+            done = True
+
+
+        return reward, done, info
 
 
     def step(self, action):
         self._do_action(action)
         obs = self._get_obs()
-        reward, done = self._compute__reward()
+        reward, done, info = self._compute__reward()
 
         return obs, reward, done, self.state
 

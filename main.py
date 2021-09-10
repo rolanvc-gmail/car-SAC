@@ -1,7 +1,7 @@
 import gym
 import airgym.envs
 import numpy as np
-from sac_torch import Agent
+from sac_agent import Agent
 from utils import plot_learning_curve
 
 def main(env):
@@ -22,7 +22,7 @@ def main(env):
         done = False
         score = 0
         while not done:
-            action = agent.choose_action(observation) # observation of ndarray(84,84,1)
+            action = agent.choose_action(observation)  # observation of ndarray(84,84,1)
             observation_, reward, done, info = env.step(action)
             score += reward
             agent.remember(observation, action, reward, observation_, done)

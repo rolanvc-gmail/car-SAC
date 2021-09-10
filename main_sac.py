@@ -1,7 +1,7 @@
 import pybullet_envs
 import gym
 import numpy as np
-from sac_torch import Agent
+from sac_agent import Agent
 from utils import plot_learning_curve
 from gym import wrappers
 
