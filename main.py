@@ -23,6 +23,7 @@ def main(env):
         score = 0
         while not done:
             action = agent.choose_action(observation)  # observation of ndarray(84,84,1)
+            action = action.flatten()
             observation_, reward, done, info = env.step(action)
             score += reward
             agent.remember(observation, action, reward, observation_, done)

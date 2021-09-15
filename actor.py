@@ -7,6 +7,9 @@ from torch.distributions.normal import Normal
 
 
 class ActorNetwork(nn.Module):
+    """
+    The ActionNetwork takes a state and outputs an action.
+    """
     def __init__(self, alpha, input_dims, max_action, fc1_dims=256,
             fc2_dims=256, n_actions=2, name='actor', chkpt_dir='tmp/sac'):
         super(ActorNetwork, self).__init__()
@@ -43,7 +46,9 @@ class ActorNetwork(nn.Module):
         x = F.max_pool2d(x, 2)  # x is Tensor(1,1,19,19)
         x = F.relu(x)  # x is Tensor(1,1,19,19)
 
-        x = T.flatten(x)  # x is Tensor(361,). 19*19=361
+        # When x is Tensor(1,1,19,19) we want a result of Tensor(1,1, 361).
+        # When x is Tensor(256,1,19,19) we want a result of Tensor(256,1,361).
+        x = x.flatten(start_dim=1)
 
         prob = self.fc1(x)  # fc1 input is (19,19) output is 256
         prob = F.relu(prob)  # prob is Tensor(256,)
@@ -58,7 +63,7 @@ class ActorNetwork(nn.Module):
 
         return mu, sigma
 
-    def sample_normal(self, state, reparameterize=True):
+    def sample_normal(self, state, reparameterize=True):  # state is Tensor(256,1, 84,84)
         mu, sigma = self.forward(state)  # mu and sigma are both Tensor(1,1,18,3)
         probabilities = Normal(mu, sigma)  # pobabilities is Normal(loc: size(1,1,18,3), scale: size(1,1,18,13)
 
@@ -67,11 +72,13 @@ class ActorNetwork(nn.Module):
         else:
             actions = probabilities.sample()
 
-        action = T.tanh(actions)*T.tensor(self.max_action).to(self.device)  # action is Tensor(3,)
-        log_probs = probabilities.log_prob(actions)  # log_probs is Tensor(3,)
-        log_probs -= T.log(1-action.pow(2)+self.reparam_noise)  # log_probs is Tensor(3,)
-        #  log_probs = log_probs.sum(1, keepdim=True)
-        log_probs = log_probs.sum()
+        #  at this point, actions is Tensor(256,3).
+        temp = T.tensor(self.max_action).to(self.device)
+        action = T.tanh(actions) * temp # action is Tensor(256,3)---good?.
+        log_probs = probabilities.log_prob(actions)  # log_probs is Tensor(256,3)
+        log_probs -= T.log(1-action.pow(2)+self.reparam_noise)  # still Tensor(256,3)
+        log_probs = log_probs.sum(1, keepdim=True)
+        # log_probs = log_probs.sum()
 
         return action, log_probs
 

@@ -6,6 +6,8 @@ from buffer import ReplayBuffer
 from critic import CriticNetwork
 from value import ValueNetwork
 from actor import ActorNetwork
+from torchviz import make_dot
+
 
 class Agent():
     def __init__(self, alpha=0.0003, beta=0.0003, input_dims=(1, 84, 84),
@@ -73,6 +75,9 @@ class Agent():
     def learn(self):
         if self.memory.mem_cntr < self.batch_size:
             return
+        """"
+          Step 1: Sample from the replay buffer.
+        """
 
         state, action, reward, new_state, done = \
                 self.memory.sample_buffer(self.batch_size)
@@ -83,25 +88,40 @@ class Agent():
         state = T.tensor(state, dtype=T.float).to(self.actor.device)
         action = T.tensor(action, dtype=T.float).to(self.actor.device)
 
-        value = self.value(state).view(-1)
-        value_ = self.target_value(state_).view(-1)
-        value_[done] = 0.0
+        """
+            Step 2: Compute the values of the current and next state
+        """
+        value = self.value(state)
+        value_ = self.target_value(state_).view(-1)  # value_ is Tensor(21504,)
+        value_[done] = 0.0 #  the size of value_ is Tensor(21504,). done is of size Tensor(256,)d
 
-        actions, log_probs = self.actor.sample_normal(state, reparameterize=False)
-        log_probs = log_probs.view(-1)
-        q1_new_policy = self.critic_1.forward(state, actions)
-        q2_new_policy = self.critic_2.forward(state, actions)
-        critic_value = T.min(q1_new_policy, q2_new_policy)
-        critic_value = critic_value.view(-1)
+        """
+            Step 3: Predict the actions  and log probabilities of the current state.
+        """
+        actions, log_probs = self.actor.sample_normal(state, reparameterize=False)  # state is Tensor(256,1,84,84)
+                                                            # action is Tensor(256,3) log_probs is Tensor(256,1)
+         # log_probs = log_probs.view(-1)  # log_probs is Tensor(256,)
+        q1_new_policy = self.critic_1.forward(state, actions)  # q1_new_policy is Tensor(256,1)
+        q2_new_policy = self.critic_2.forward(state, actions)  # q2_new_policy is Tensor(256,1)
+        critic_value = T.min(q1_new_policy, q2_new_policy)  # critic_value is Tensor(256,1)
+        # critic_value = critic_value.view(-1)  # critic_value is now Tensor(256,)
 
+        """
+            Step 4: Backpropagate the value network. 
+        """
         self.value.optimizer.zero_grad()
-        value_target = critic_value - log_probs
-        value_loss = 0.5 * F.mse_loss(value, value_target)
-        value_loss.backward(retain_graph=True)
+        value_target = critic_value - log_probs # value_target is Tensor(256,1)
+        the_mse_loss = F.mse_loss(value, value_target, reduction='none')  # the_mse_loss is Tensor(256,1)
+        value_loss = 0.5 * the_mse_loss
+        value_loss = value_loss.sum()
+        dot = make_dot(value_loss)
+        dot.render("network.png")
+        value_loss.backward(retain_graph=True)  #value_loss is Tensor(256,1), keep getting error here. why?
         self.value.optimizer.step()
 
         actions, log_probs = self.actor.sample_normal(state, reparameterize=True)
         log_probs = log_probs.view(-1)
+
         q1_new_policy = self.critic_1.forward(state, actions)
         q2_new_policy = self.critic_2.forward(state, actions)
         critic_value = T.min(q1_new_policy, q2_new_policy)
