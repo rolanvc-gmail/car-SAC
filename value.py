@@ -20,12 +20,13 @@ class ValueNetwork(nn.Module):
         self.checkpoint_dir = chkpt_dir
         self.checkpoint_file = os.path.join(self.checkpoint_dir, name+'_sac')
 
-        self.conv1 = nn.Conv2d(1, 1, 5)
-        self.conv2 = nn.Conv2d(1, 1, 3)
-        self.fc1 = nn.Linear(361, self.fc1_dims)  # 19*19 is the output after conv2,
-                                                  # but we'll perform a reshaping so 19*19=361 is the new shape
-        self.fc2 = nn.Linear(self.fc1_dims, fc2_dims)
-        self.v = nn.Linear(self.fc2_dims, 1)
+        # input is (1,1,84,84)
+        self.conv1 = nn.Conv2d(1, 1, 5)             # after self.conv1, output is (1,1,80,80)
+        self.conv2 = nn.Conv2d(1, 1, 3)             # after self.conv2, output is (1,1,19,19)
+        self.fc1 = nn.Linear(361, self.fc1_dims)  # input will be flattened 19x19 = 361,
+                                                  # output will be 256
+        self.fc2 = nn.Linear(self.fc1_dims, fc2_dims) # input is 256; output is 256
+        self.v = nn.Linear(self.fc2_dims, 1)  # input is 256;output is 1
 
         self.optimizer = optim.Adam(self.parameters(), lr=beta)
         self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
@@ -40,7 +41,8 @@ class ValueNetwork(nn.Module):
         x = F.max_pool2d(x, 2)  # x is Tensor(256,1,19,19)
         x = F.relu(x)  # x is Tensor(256,1,19,19)
 
-        x = x.view((256, 361))
+        # x = x.view((256, 361))  # x is Tensor(256,1,19,19). I want to convert it to (256,361). Maybe I shouldn't use views()?
+        x = x.flatten(start_dim=1)
         state_value = self.fc1(x)
         state_value = F.relu(state_value)
         state_value = self.fc2(state_value)

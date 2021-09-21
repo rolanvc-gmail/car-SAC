@@ -24,9 +24,12 @@ class ActorNetwork(nn.Module):
         self.max_action = max_action
         self.reparam_noise = 1e-6
 
+        #input is (batch, 1, 84,84)
         self.conv1 = nn.Conv2d(1, 1, 5)
         self.conv2 = nn.Conv2d(1, 1, 3)
-        self.fc1 = nn.Linear(19, self.fc1_dims)
+        # after self.conv1, output should be (batch,1, 40,40). after self.conv2, output should be (b, 1, 19,19)
+        # will flatten here to be (batch, 1, 361)
+        self.fc1 = nn.Linear(361, self.fc1_dims) # input should be (batch, 361), output is (batch, 256)
         self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)
         self.mu = nn.Linear(self.fc2_dims, self.n_actions)
         self.sigma = nn.Linear(self.fc2_dims, self.n_actions)

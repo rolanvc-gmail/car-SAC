@@ -21,11 +21,13 @@ class CriticNetwork(nn.Module):
         self.checkpoint_dir = chkpt_dir
         self.checkpoint_file = os.path.join(self.checkpoint_dir, name+'_sac')
 
+        # input is expected to be (1,1,84,84)
+        # after self.conv1, output should be (1,1,80,80). after self.conv2, output is (1,1, 19,19)
         self.conv1 = nn.Conv2d(1, 1, 5)
-        self.conv2 = nn.Conv2d(1, 1, 3)
-        self.fc1 = nn.Linear(self.input_dims[0]+n_actions, self.fc1_dims)
-        self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)
-        self.q = nn.Linear(self.fc2_dims, 1)
+        self.conv2 = nn.Conv2d(1, 1, 3)  # we expect output of Conv to be (19x19)
+        self.fc1 = nn.Linear((19*19) + n_actions, self.fc1_dims) # input is (19x19+3 = 361+4=365), output is 256
+        self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)  # in is 256, out is 256
+        self.q = nn.Linear(self.fc2_dims, 1)  # in is 256, out is 1
 
         self.optimizer = optim.Adam(self.parameters(), lr=beta)
         self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
@@ -41,13 +43,18 @@ class CriticNetwork(nn.Module):
         x = self.conv2(x)  # self.conv2 filter size is  3. therefore, output should be 40-3=37; 37+1=38
         x = F.max_pool2d(x, 2)  # x is Tensor(1,1,19,19)
         x = F.relu(x)  # x is Tensor(1,1,19,19)
-        x = T.flatten(x, start_dim=1)  # x is Tensor(361,). 19*19=361
+        x = T.flatten(x, start_dim=2)  # x is Tensor(361,). 19*19=361
 
-        action_value = self.fc1(T.cat([x, action], dim=1))  # x is Tensor(361,1), action is Tensor(3,)
+        # x is Tensor(1,1, 361), action is Tensor(1,1,3).
+        # we try to squeeze them first...
+        x = T.squeeze(x, dim=1)
+        action = T.squeeze(action, dim=1)
+        concatenated = T.cat([x, action], dim=1)  # concatentated is Tensor(16,364).
+        action_value = self.fc1(concatenated)  # action_value is Tensor(16,256)
         action_value = F.relu(action_value)
         action_value = self.fc2(action_value)
         action_value = F.relu(action_value)
-
+        #  action_value is Tensor(16,3)
         q = self.q(action_value)
 
         return q
