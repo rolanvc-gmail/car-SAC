@@ -4,7 +4,12 @@ import numpy as np
 from sac_agent import Agent
 from utils import plot_learning_curve
 from gym import wrappers
+import torch
 
+if torch.cuda_is_available():
+    print("Using CUDA device:". format(torch.cuda.get_device_name(0)))
+else:
+    print ("No CUDA detected. Using CPU")
 if __name__ == '__main__':
     env = gym.make('InvertedPendulumBulletEnv-v0')
     agent = Agent(input_dims=env.observation_space.shape, env=env,

@@ -58,7 +58,7 @@ class CarGym(gym.Env):
         self.car_controls.steering = new_steering
 
         # brake = 0.0
-        if  action[2] >= 0.5:
+        if action[2] >= 0.5:
             self.car_controls.brake = True
         else:
             self.car_controls.brake = False
