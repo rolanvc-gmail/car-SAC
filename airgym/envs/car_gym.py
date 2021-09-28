@@ -53,7 +53,7 @@ class CarGym(gym.Env):
         new_steering = self.car_controls.steering + action[1]
         if new_steering >= 1.0:
             new_steering = 1.0
-        elif new_steering <=-1.0:
+        elif new_steering <= -1.0:
             new_steering = -1.0
         self.car_controls.steering = new_steering
 

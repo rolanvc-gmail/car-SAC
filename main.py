@@ -2,15 +2,25 @@ import gym
 import airgym.envs
 import numpy as np
 from sac_agent import Agent
-from utils import plot_learning_curve
+import torch
+from datetime import datetime
+import csv
+
+
+if torch.cuda.is_available():
+    print("Using CUDA device:{}".format(torch.cuda.get_device_name(0)))
+else:
+    print("No CUDA detected. Using CPU")
 
 def main(env):
     agent = Agent(input_dims=env.observation_space.shape, env=env,
                   n_actions=env.action_space.shape[0])
-    n_episodes = 10000000 # 10M
+    n_episodes = 10000  #10M
     best_score = env.reward_range[0]
     score_history = []
-    figure_file = "plots/" + "car_gym.png"
+    scores_only = []
+    start_dt = datetime.now()
+    score_file = "data/scores-{}.csv".format(start_dt.strftime("%m-%d-%Y-%H:%M:%S"))
 
     load_checkpoint = False
     if load_checkpoint:
@@ -31,18 +41,25 @@ def main(env):
                 agent.learn()
             observation = observation_
 
-        score_history.append(score)
-        avg_score = np.mean(score_history[-100:])
+        score_history.append((i, score))
+        scores_only.append(score)
+        avg_score = np.mean(scores_only[-100:])
         if avg_score > best_score:
             best_score = avg_score
             if not load_checkpoint:
                 agent.save_models()
 
         print('episode', i, 'score %.1f'% score, 'avg_score %.1f'%avg_score)
-    if not load_checkpoint:
-        x=[ i+1 for i in range(n_episodes)]
-        plot_learning_curve(x, score_history, figure_file)
 
+    end_dt = datetime.now()
+    runtime_diff = end_dt - start_dt
+    tot_sec = runtime_diff.total_seconds()
+    per_episode = tot_sec / n_episodes
+    print("Total Elapsed time is {} seconds or {} sec per episode".format(tot_sec, per_episode))
+
+    with open(score_file, "w") as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(score_history)
 
 
 if __name__ == '__main__':

@@ -114,8 +114,6 @@ class Agent(object):
         the_mse_loss = F.mse_loss(value, value_target, reduction='none')  # the_mse_loss is Tensor(256,1)
         value_loss = 0.5 * the_mse_loss
         value_loss = value_loss.sum()
-        dot = make_dot(value_loss)
-        dot.render("network.png")
         value_loss.backward(retain_graph=True)  #value_loss is Tensor(256,1), keep getting error here. why?
         self.value.optimizer.step()
 
